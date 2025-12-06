@@ -1,8 +1,10 @@
 # vusbpb/cli.py
 import argparse
+import os
 import sys
 
 from .usb import show_usb
+from .vm import show_vm, add_vm_mapping, delete_vm_mapping
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,6 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def require_root() -> None:
+    """Sprawdza, czy uruchomiono jako root."""
+    if os.geteuid() != 0:
+        print("This operation must be run as root (use sudo).")
+        raise SystemExit(1)
+
+
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
@@ -70,18 +79,37 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Na razie obsługujemy tylko minimum: --show usb i --version.
+    # --version
     if args.version:
         print("vusbpb version 0.1.0-dev")
         return 0
 
+    # --show usb
     if args.show == "usb":
         return show_usb()
 
-    # TODO: dalsze komendy: --show vm, --add, --delete, --install, --uninstall, --daemon
-    if any([args.install, args.uninstall, args.daemon, args.show == "vm", args.add, args.delete]):
-        print("Not implemented yet in this version.")
+    # --show vm / --show vm --no-status
+    if args.show == "vm":
+        return show_vm(no_status=args.no_status)
+
+    # --add {vmId} --usb {usbPortId}
+    if args.add is not None:
+        if not args.usb:
+            print("--add requires --usb PORT_ID (e.g. 1-1.2)")
+            return 1
+        require_root()
+        return add_vm_mapping(args.add, args.usb)
+
+    # --delete {vmId}
+    if args.delete is not None:
+        require_root()
+        return delete_vm_mapping(args.delete)
+
+    # Na razie --install, --uninstall, --daemon niezaimplementowane
+    if args.install or args.uninstall or args.daemon:
+        print("Install/uninstall/daemon not implemented yet in this version.")
         return 1
 
+    # Brak argumentów - pokaż help
     parser.print_help()
     return 0

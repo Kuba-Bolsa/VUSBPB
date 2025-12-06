@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 from typing import List
 
-from .config import load_config, save_config, get_usb_history, set_usb_history, ConfigError
+from .config import loadConfig, saveConfig, getUSBHistory, setUSBHistory, ConfigError
 
 
 SYS_USB_DEVICES = "/sys/bus/usb/devices"
@@ -80,14 +80,14 @@ ANSI_GREEN = "\033[32m"
 ANSI_RESET = "\033[0m"
 
 
-def show_usb() -> int:
+def showUSB() -> int:
     """
     Implementacja komendy `vusbpb --show usb`.
     Zwraca exit code (0 = ok, !=0 przy błędzie).
     """
     try:
-        config = load_config(allow_missing=True)
-        previous_usb = set(get_usb_history(config))
+        config = loadConfig(allow_missing=True)
+        previous_usb = set(getUSBHistory(config))
     except ConfigError as e:
         # Config uszkodzony – wypisujemy ostrzeżenie, ale nadal pokażemy porty
         previous_usb = set()
@@ -113,9 +113,9 @@ def show_usb() -> int:
 
     # Spróbuj zapisać nową historię, jeśli config da się wczytać
     try:
-        config = load_config(allow_missing=True)
-        config = set_usb_history(config, sorted(current_connected))
-        save_config(config)
+        config = loadConfig(allow_missing=True)
+        config = setUSBHistory(config, sorted(current_connected))
+        saveConfig(config)
     except ConfigError as e:
         # Nie psujemy działania komendy przez błąd zapisu – tylko informujemy
         print(f"WARNING: cannot update USB history in config: {e}")

@@ -2,7 +2,7 @@
 import os
 import subprocess
 
-from .config import CONFIG_PATH, save_config, load_config
+from .config import CONFIG_PATH, saveConfig, loadConfig
 
 
 SERVICE_PATH = "/etc/systemd/system/vusbpb.service"
@@ -32,7 +32,7 @@ def install() -> int:
     if not os.path.exists(CONFIG_PATH):
         config = {"VMS": [], "USB": []}
         try:
-            save_config(config)
+            saveConfig(config)
         except Exception as e:
             print(f"ERROR: cannot create config file: {e}")
             return 1

@@ -1,9 +1,8 @@
-# vusbpb/daemon.py
 import time
 from typing import Dict, List
 
 from .logging_util import log_info, log_error, log_warning
-from .config import load_config, ConfigError
+from .config import loadConfig, ConfigError
 from .proxmox import get_vm_status, start_vm, VmStatus
 
 
@@ -29,7 +28,7 @@ def _build_port_to_vm_map(config: dict) -> Dict[str, List[int]]:
     return mapping
 
 
-def run_daemon() -> int:
+def runDaemon() -> int:
     """
     Główna logika demona vUSBPB.
 
@@ -50,7 +49,7 @@ def run_daemon() -> int:
     log_info("vUSBPB daemon starting")
 
     try:
-        config = load_config(allow_missing=False)
+        config = loadConfig(allow_missing=False)
     except ConfigError as e:
         log_error(f"Cannot load config: {e}")
         return 1

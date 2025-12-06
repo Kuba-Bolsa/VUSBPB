@@ -2,81 +2,132 @@
 from typing import Dict, Any, List
 
 from .config import (
-    load_config,
-    save_config,
-    get_vm_mappings,
-    set_vm_mappings,
+    loadConfig,
+    saveConfig,
+    getVmMappings,
+    setVmMappings,
     ConfigError,
 )
-from .proxmox import get_vm_status, VmStatus
+from .proxmox import get_vm_status, VmStatus, getAllVMs
 
 
-def show_vm(no_status: bool = False) -> int:
+def show_vm() -> int:
     """
-    Implementacja `vusbpb --show vm` (+ opcjonalnie --no-status).
+    `vusbpb --show vm`
+
+    Pokazuje listę WSZYSTKICH maszyn z Proxmoxa (qm list),
+    a w ostatniej kolumnie zaznacza, które VM mają skonfigurowany
+    USB Power Button w vUSBPB.
     """
+    # Wczytaj konfigurację, żeby znać mapowanie vmId -> usbPortId
     try:
-        config = load_config(allow_missing=True)
+        config = loadConfig(allow_missing=True)
     except ConfigError as e:
         print(f"ERROR: cannot load config: {e}")
         return 1
 
-    mappings: List[Dict[str, Any]] = get_vm_mappings(config)
+    mappings: List[Dict[str, Any]] = getVmMappings(config)
+
+    vmid_to_usb: Dict[int, str] = {}
+    for m in mappings:
+        vm_id = m.get("vmId")
+        usb_port_id = m.get("usbPortId", "")
+        if vm_id is None:
+            continue
+        try:
+            vm_id_int = int(vm_id)
+        except (TypeError, ValueError):
+            continue
+        vmid_to_usb[vm_id_int] = usb_port_id
+
+    # Pobierz listę VM z Proxmoxa
+    vms = getAllVMs()
+
+    print("VMID   Name             Status     USB devpath")
+    print("----------------------------------------------------")
+
+    if not vms:
+        # brak maszyn albo qm list zwrócił błąd
+        return 0
+
+    for vm in vms:
+        try:
+            vm_id_int = int(vm.get("vmId", -1))
+        except (TypeError, ValueError):
+            continue
+
+        name = vm.get("name", "")
+        status = vm.get("status", "unknown")
+        usb_port_id = vmid_to_usb.get(vm_id_int, "-")
+
+        print(f"{vm_id_int:<6} {name:<16} {status:<10} {usb_port_id}")
+
+    return 0
+
+
+def listVMappings() -> int:
+    """
+    `vusbpb --list`
+
+    Pokazuje TYLKO to, co jest skonfigurowane w vUSBPB,
+    czyli mapowanie VMID -> USB devpath, wraz ze statusem VM.
+    """
+    try:
+        config = loadConfig(allow_missing=True)
+    except ConfigError as e:
+        print(f"ERROR: cannot load config: {e}")
+        return 1
+
+    mappings: List[Dict[str, Any]] = getVmMappings(config)
 
     print("VMID   USB devpath   Status")
     print("-----------------------------------")
 
     if not mappings:
-        # Brak skonfigurowanych maszyn
         return 0
 
     for m in mappings:
-        # Bezpieczne pobieranie pól z fallbackiem
         vm_id = m.get("vmId")
         usb_port_id = m.get("usbPortId", "")
-
-        # Jeśli brak vmId (np. stary/uszkodzony wpis), pomijamy
         if vm_id is None:
             continue
 
-        if no_status:
-            status_str = "unknown"
-        else:
-            status = get_vm_status(int(vm_id))
-            if status == VmStatus.RUNNING:
-                status_str = "running"
-            elif status == VmStatus.STOPPED:
-                status_str = "stopped"
-            else:
-                status_str = "unknown"
+        try:
+            vm_id_int = int(vm_id)
+        except (TypeError, ValueError):
+            continue
 
-        print(f"{str(vm_id):<6} {usb_port_id:<12} {status_str}")
+        status = get_vm_status(vm_id_int)
+        if status == VmStatus.RUNNING:
+            status_str = "running"
+        elif status == VmStatus.STOPPED:
+            status_str = "stopped"
+        else:
+            status_str = "unknown"
+
+        print(f"{vm_id_int:<6} {usb_port_id:<12} {status_str}")
 
     return 0
 
 
-def add_vm_mapping(vm_id: int, usb_port_id: str) -> int:
+def addVMMapping(vm_id: int, usb_port_id: str) -> int:
     """
-    Implementacja `vusbpb --add {vmId} --usb {usbPortId}`.
-
-    - Nie pozwala dodać drugiego wpisu z tym samym vmId.
-    - Pozwala, by wiele VM korzystało z tego samego usbPortId.
+    `vusbpb --add {vmId} --usb {usbPortId}`
     """
     try:
-        config = load_config(allow_missing=True)
+        config = loadConfig(allow_missing=True)
     except ConfigError as e:
         print(f"ERROR: cannot load config: {e}")
         return 1
 
-    mappings: List[Dict[str, Any]] = get_vm_mappings(config)
+    mappings: List[Dict[str, Any]] = getVmMappings(config)
 
-    # Sprawdź, czy vmId już istnieje
+    # Nie pozwalamy na duplikaty vmId
     for m in mappings:
         if int(m.get("vmId", -1)) == vm_id:
             print(f"ERROR: VMID {vm_id} is already configured. Use --delete {vm_id} first.")
             return 1
 
-    # Dodaj nowy wpis
     mappings.append(
         {
             "vmId": vm_id,
@@ -84,10 +135,10 @@ def add_vm_mapping(vm_id: int, usb_port_id: str) -> int:
         }
     )
 
-    config = set_vm_mappings(config, mappings)
+    config = setVmMappings(config, mappings)
 
     try:
-        save_config(config)
+        saveConfig(config)
     except ConfigError as e:
         print(f"ERROR: cannot save config: {e}")
         return 1
@@ -96,32 +147,29 @@ def add_vm_mapping(vm_id: int, usb_port_id: str) -> int:
     return 0
 
 
-def delete_vm_mapping(vm_id: int) -> int:
+def deleteVMMapping(vm_id: int) -> int:
     """
-    Implementacja `vusbpb --delete {vmId}`.
-
-    - Usuwa wszystkie wpisy dla danego vmId (teoretycznie powinna być max 1).
+    `vusbpb --delete {vmId}`
     """
     try:
-        config = load_config(allow_missing=True)
+        config = loadConfig(allow_missing=True)
     except ConfigError as e:
         print(f"ERROR: cannot load config: {e}")
         return 1
 
-    mappings: List[Dict[str, Any]] = get_vm_mappings(config)
+    mappings: List[Dict[str, Any]] = getVmMappings(config)
 
     new_mappings = [m for m in mappings if int(m.get("vmId", -1)) != vm_id]
-
     removed_count = len(mappings) - len(new_mappings)
 
     if removed_count == 0:
         print(f"No mapping found for VMID {vm_id}. Nothing to delete.")
         return 0
 
-    config = set_vm_mappings(config, new_mappings)
+    config = setVmMappings(config, new_mappings)
 
     try:
-        save_config(config)
+        saveConfig(config)
     except ConfigError as e:
         print(f"ERROR: cannot save config: {e}")
         return 1

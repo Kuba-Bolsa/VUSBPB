@@ -11,7 +11,7 @@ from .config import (
 from .proxmox import get_vm_status, VmStatus, getAllVMs
 
 
-def showSystemVMs() -> int:
+def showSystemVM() -> int:
     """
     `vusbpb --show vm`
 
@@ -65,7 +65,7 @@ def showSystemVMs() -> int:
     return 0
 
 
-def listVMappings() -> int:
+def listVMPowerButton() -> int:
     """
     `vusbpb --list`
 

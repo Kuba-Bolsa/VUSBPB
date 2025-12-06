@@ -3,7 +3,7 @@ import os
 import sys
 
 from .usb import showUSB
-from .vm import show_vm, addVMPowerButton, deleteVMPowerButton, listVMappings
+from .vm import showSystemVM, addVMPowerButton, deleteVMPowerButton, listVMPowerButton
 from .systemd_install import install as doInstall, uninstall as doUninstall
 from .daemon import runDaemon
 
@@ -102,11 +102,11 @@ def main(argv: list[str] | None = None) -> int:
     # SHOW: VM
     if args.show == "vm":
         requireRoot()
-        return showSystemVMs()
+        return showSystemVM()
 
     # LIST
     if args.list:
-        return listVMappings()
+        return listVMPowerButton()
 
     # ADD / DELETE VM MAPPING
     if args.add is not None:

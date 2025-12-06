@@ -11,7 +11,7 @@ from .config import (
 from .proxmox import get_vm_status, VmStatus, getAllVMs
 
 
-def show_vm() -> int:
+def showSystemVMs() -> int:
     """
     `vusbpb --show vm`
 
@@ -110,7 +110,7 @@ def listVMappings() -> int:
     return 0
 
 
-def addVMMapping(vm_id: int, usb_port_id: str) -> int:
+def addVMPowerButton(vm_id: int, usb_port_id: str) -> int:
     """
     `vusbpb --add {vmId} --usb {usbPortId}`
     """
@@ -147,7 +147,7 @@ def addVMMapping(vm_id: int, usb_port_id: str) -> int:
     return 0
 
 
-def deleteVMMapping(vm_id: int) -> int:
+def deleteVMPowerButton(vm_id: int) -> int:
     """
     `vusbpb --delete {vmId}`
     """

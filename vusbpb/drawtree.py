@@ -26,7 +26,7 @@ def renderTree(rootLabel: str, roots: Iterable[TreeNode]) -> str:
 # Helpers
 def helperRenderNode(node: TreeNode, prefix: str, isLast: bool, lines: List[str]) -> None:
     asciiConnector = "└── " if isLast else "├── "
-    lines.append(f"{prefix}{asciiConnector}{node.label}")
+    lines.append(f"\033[38;5;28m{prefix}{asciiConnector}\033[0m{node.label}")
 
     if not node.children:
         return

@@ -15,15 +15,15 @@ def _build_port_to_vm_map(config: dict) -> Dict[str, List[int]]:
     vms = config.get("VMS", [])
     for entry in vms:
         vm_id = entry.get("vmId")
-        usb_port_id = entry.get("usbPortId")
-        if vm_id is None or not usb_port_id:
+        usbPortId = entry.get("usbPortId")
+        if vm_id is None or not usbPortId:
             continue
         try:
             vm_id_int = int(vm_id)
         except (TypeError, ValueError):
             continue
 
-        mapping.setdefault(usb_port_id, []).append(vm_id_int)
+        mapping.setdefault(usbPortId, []).append(vm_id_int)
 
     return mapping
 

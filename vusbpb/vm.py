@@ -1,176 +1,153 @@
 from typing import Dict, Any, List
 
-from .config import (
-    loadConfig,
-    saveConfig,
-    getVmMappings,
-    setVmMappings,
-    ConfigError,
-)
+from .config import (loadConfig, saveConfig, getVmMappings, setVmMappings, ConfigError)
 from .proxmox import get_vm_status, VmStatus, getAllVMs
 from .drawtree import TreeNode, renderTree
 
 
-def showSystemVM() -> int:
+def showVMFromSystem() -> int:
     try:
-        config = loadConfig(allow_missing=True)
-    except ConfigError as e:
-        print(f"ERROR: cannot load config: {e}")
+        config = loadConfig(allow_missing = True)
+    except ConfigError as error:
+        print(f"ERROR: Cannot load config: {error}")
         return 1
 
-    mappings: List[Dict[str, Any]] = getVmMappings(config)
-    vmid_to_usb: Dict[int, str] = {}
-    for m in mappings:
-        vm_id = m.get("vmId")
-        usb_port_id = m.get("usbPortId", "")
-        if vm_id is None:
+    vmIdToUSB: Dict[int, str] = {}
+    for mapping in getVmMappings(config):
+        vmId = helperSafeInt(mapping.get("vmId"))
+        if vmId is None:
             continue
-        try:
-            vm_id_int = int(vm_id)
-        except (TypeError, ValueError):
-            continue
-        vmid_to_usb[vm_id_int] = usb_port_id
+        vmIdToUSB[vmId] = mapping.get("usbPortId", "")
 
     vms = getAllVMs()
     if not vms:
-        print("Brak maszyn wirtualnych (qm list).")
+        print("No virtual machines found")
         return 0
 
     nodes: List[TreeNode] = []
     for vm in vms:
-        try:
-            vm_id_int = int(vm.get("vmId", -1))
-        except (TypeError, ValueError):
+        vmId = helperSafeInt(vm.get("vmId"))
+        if vmId is None:
             continue
 
-        name = vm.get("name", "")
-        status = vm.get("status", "unknown")
-        usb_port_id = vmid_to_usb.get(vm_id_int, "")
+        vmName = vm.get("name", "")
+        vmStatus = vm.get("status", "unknown")
+        vmUSBPort = vmIdToUSB.get(vmId, "<none>")
 
-        label = f"VM ID: {vm_id_int}"
+        nodes.append(
+            TreeNode(
+                label = f"\033[38;5;82mVM ID: \033[38;5;15m{vmId}\033[0m",
+                children = [
+                    TreeNode(label = f"\033[38;5;82mName: \033[38;5;15m{vmName}\033[0m"),
+                    TreeNode(label = f"\033[38;5;82mStatus: \033[38;5;15m{vmStatus}\033[0m"),
+                    TreeNode(label = f"\033[38;5;82mUSB devpath: \033[38;5;15m{vmUSBPort}\033[0m"),
+                ],
+            )
+        )
 
-        children = [
-            TreeNode(label = f"Name: {name}"),
-            TreeNode(label=f"Status: {status}"),
-            TreeNode(label=f"USB devpath: {usb_port_id}"),
-        ]
-
-        nodes.append(TreeNode(label=label, children=children))
-
-    tree = renderTree("(vm list)", nodes)
-    print(tree)
+    print(renderTree("\033[38;5;28mVM list\033[0m", nodes))
     return 0
 
 
 def listVMPowerButton() -> int:
     try:
-        config = loadConfig(allow_missing=True)
-    except ConfigError as e:
-        print(f"ERROR: cannot load config: {e}")
+        config = loadConfig(allow_missing = True)
+    except ConfigError as error:
+        print(f"ERROR: Cannot load config: {error}")
         return 1
 
-    mappings: List[Dict[str, Any]] = getVmMappings(config)
+    mappings = getVmMappings(config)
     if not mappings:
-        print("Brak skonfigurowanych VM Power Button.")
+        print("No VM USB Power Button configured")
         return 0
+
+    statusMap = {
+        VmStatus.RUNNING: "running",
+        VmStatus.STOPPED: "stopped",
+        VmStatus.UNKNOWN: "unknown",
+    }
 
     nodes: List[TreeNode] = []
     for m in mappings:
-        vm_id = m.get("vmId")
-        usb_port_id = m.get("usbPortId", "")
-        if vm_id is None:
+        vmId = helperSafeInt(m.get("vmId"))
+        if vmId is None:
             continue
 
-        try:
-            vm_id_int = int(vm_id)
-        except (TypeError, ValueError):
-            continue
+        vmUSBPort = m.get("usbPortId", "")
+        vmStatus = statusMap.get(get_vm_status(vmId), "unknown")
 
-        status = get_vm_status(vm_id_int)
-        if status == VmStatus.RUNNING:
-            status_str = "running"
-        elif status == VmStatus.STOPPED:
-            status_str = "stopped"
-        else:
-            status_str = "unknown"
-
-        vm_node = TreeNode(
-            label=f"VM ID: {vm_id_int}",
-            children=[
-                TreeNode(label=f"Status: {status_str}"),
-                TreeNode(label=f"USB number: {usb_port_id}"),
-            ],
+        nodes.append(
+            TreeNode(
+                label = f"\033[38;5;28mVM ID: \033[38;5;15m{vmId}\033[0m",
+                children = [
+                    TreeNode(label = f"\033[38;5;28mStatus: \033[38;5;15m{vmStatus}\033[0m"),
+                    TreeNode(label = f"\033[38;5;28mUSB number: \033[38;5;15m{vmUSBPort}\033[0m"),
+                ],
+            )
         )
-        nodes.append(vm_node)
 
-    tree = renderTree("(node)", nodes)
-    print(tree)
+    print(renderTree("\033[38;5;28mVM with USB Power Buttons\033[0m", nodes))
     return 0
 
 
-def addVMPowerButton(vm_id: int, usb_port_id: str) -> int:
-    """
-    `vusbpb --add {vmId} --usb {usbPortId}`
-    """
+def addVMPowerButton(vmId: int, vmUSBPort: str) -> int:
     try:
-        config = loadConfig(allow_missing=True)
-    except ConfigError as e:
-        print(f"ERROR: cannot load config: {e}")
+        config = loadConfig(allow_missing = True)
+    except ConfigError as error:
+        print(f"ERROR: Cannot load config: {error}")
         return 1
 
     mappings: List[Dict[str, Any]] = getVmMappings(config)
-
-    # Nie pozwalamy na duplikaty vmId
     for m in mappings:
-        if int(m.get("vmId", -1)) == vm_id:
-            print(f"ERROR: VMID {vm_id} is already configured. Use --delete {vm_id} first.")
+        if int(m.get("vmId", -1)) == vmId:
+            print(f"ERROR: VMID {vmId} is already configured. Use --delete {vmId} first")
             return 1
 
-    mappings.append(
-        {
-            "vmId": vm_id,
-            "usbPortId": usb_port_id,
-        }
-    )
+    mappings.append({
+        "vmId": vmId,
+        "usbPortId": vmUSBPort
+    })
 
     config = setVmMappings(config, mappings)
-
     try:
         saveConfig(config)
-    except ConfigError as e:
-        print(f"ERROR: cannot save config: {e}")
+    except ConfigError as error:
+        print(f"ERROR: Cannot save config: {error}")
         return 1
 
-    print(f"Added VMID {vm_id} with USB devpath {usb_port_id}.")
+    print(f"Added VM ID: {vmId} with USB devpath {vmUSBPort}")
     return 0
 
 
-def deleteVMPowerButton(vm_id: int) -> int:
-    """
-    `vusbpb --delete {vmId}`
-    """
+def deleteVMPowerButton(vmId: int) -> int:
     try:
-        config = loadConfig(allow_missing=True)
-    except ConfigError as e:
-        print(f"ERROR: cannot load config: {e}")
+        config = loadConfig(allow_missing = True)
+    except ConfigError as error:
+        print(f"ERROR: Cannot load config: {error}")
         return 1
 
-    mappings: List[Dict[str, Any]] = getVmMappings(config)
+    mappings = getVmMappings(config)
+    newMappings = [m for m in mappings if helperSafeInt(m.get("vmId")) != vmId]
+    removedCounter = len(mappings) - len(newMappings)
 
-    new_mappings = [m for m in mappings if int(m.get("vmId", -1)) != vm_id]
-    removed_count = len(mappings) - len(new_mappings)
-
-    if removed_count == 0:
-        print(f"No mapping found for VMID {vm_id}. Nothing to delete.")
+    if removedCounter == 0:
+        print(f"No mapping found for VM ID: {vmId}. Nothing to delete")
         return 0
 
-    config = setVmMappings(config, new_mappings)
-
+    config = setVmMappings(config, newMappings)
     try:
         saveConfig(config)
-    except ConfigError as e:
-        print(f"ERROR: cannot save config: {e}")
+    except ConfigError as error:
+        print(f"ERROR: Cannot save config: {error}")
         return 1
 
-    print(f"Removed {removed_count} mapping(s) for VMID {vm_id}.")
+    print(f"Removed {removedCounter} mapping(s) for VM ID: {vmId}")
     return 0
+
+
+# Helpers
+def helperSafeInt(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

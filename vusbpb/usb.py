@@ -83,22 +83,22 @@ def showUSB() -> int:
         usbDescription = usbPort.usbDescription or ""
         usbDeviceId = usbPort.usbDeviceId or "none"
 
-        usbPortLabel = f"USB port: {usbPort.usbPortId}"
+        usbPortLabel = f"\033[38;5;82mUSB port: \033[38;5;15m{usbPort.usbPortId}\033[0m"
         if isNewConnected:
-            usbPortLabel += "  <NEW>"
+            usbPortLabel += "  \033[5;48;5;196;38;5;15m ← NEW \033[0m"
 
         children = [
             TreeNode(
-                label = f"Connected: {connected_str}"
+                label = f"\033[38;5;82mConnected: \033[38;5;15m{connected_str}\033[0m"
             ),
             TreeNode(
-                label = f"Device ID: {usbDeviceId}"
+                label = f"\033[38;5;82mDevice ID: \033[38;5;15m{usbDeviceId}\033[0m"
             ),
         ]
 
         if usbDescription:
             children.append(TreeNode(
-                label = f"Description: {usbDescription}"
+                label = f"\033[38;5;82mDescription: \033[38;5;15m{usbDescription}\033[0m"
             ))
 
         nodes.append(TreeNode(
@@ -113,8 +113,7 @@ def showUSB() -> int:
     except ConfigError as error:
         print(f"WARNING: cannot update USB history in config: {error}")
 
-    tree = renderTree("(usb ports)", nodes)
-    print(tree)
+    print(renderTree("\033[38;5;28mUSB ports\033[0m", nodes))
     return 0
 
 

@@ -1,4 +1,3 @@
-# vusbpb/vm.py
 from typing import Dict, Any, List
 
 from .config import (
@@ -9,17 +8,10 @@ from .config import (
     ConfigError,
 )
 from .proxmox import get_vm_status, VmStatus, getAllVMs
+from .drawtree import TreeNode, renderTree
 
 
 def showSystemVM() -> int:
-    """
-    `vusbpb --show vm`
-
-    Pokazuje listę WSZYSTKICH maszyn z Proxmoxa (qm list),
-    a w ostatniej kolumnie zaznacza, które VM mają skonfigurowany
-    USB Power Button w vUSBPB.
-    """
-    # Wczytaj konfigurację, żeby znać mapowanie vmId -> usbPortId
     try:
         config = loadConfig(allow_missing=True)
     except ConfigError as e:
@@ -27,7 +19,6 @@ def showSystemVM() -> int:
         return 1
 
     mappings: List[Dict[str, Any]] = getVmMappings(config)
-
     vmid_to_usb: Dict[int, str] = {}
     for m in mappings:
         vm_id = m.get("vmId")
@@ -40,16 +31,12 @@ def showSystemVM() -> int:
             continue
         vmid_to_usb[vm_id_int] = usb_port_id
 
-    # Pobierz listę VM z Proxmoxa
     vms = getAllVMs()
-
-    print("VMID   Name             Status     USB devpath")
-    print("----------------------------------------------------")
-
     if not vms:
-        # brak maszyn albo qm list zwrócił błąd
+        print("Brak maszyn wirtualnych (qm list).")
         return 0
 
+    nodes: List[TreeNode] = []
     for vm in vms:
         try:
             vm_id_int = int(vm.get("vmId", -1))
@@ -58,20 +45,24 @@ def showSystemVM() -> int:
 
         name = vm.get("name", "")
         status = vm.get("status", "unknown")
-        usb_port_id = vmid_to_usb.get(vm_id_int, "-")
+        usb_port_id = vmid_to_usb.get(vm_id_int, "")
 
-        print(f"{vm_id_int:<6} {name:<16} {status:<10} {usb_port_id}")
+        label = f"VM ID: {vm_id_int}"
 
+        children = [
+            TreeNode(label = f"Name: {name}"),
+            TreeNode(label=f"Status: {status}"),
+            TreeNode(label=f"USB devpath: {usb_port_id}"),
+        ]
+
+        nodes.append(TreeNode(label=label, children=children))
+
+    tree = renderTree("(vm list)", nodes)
+    print(tree)
     return 0
 
 
 def listVMPowerButton() -> int:
-    """
-    `vusbpb --list`
-
-    Pokazuje TYLKO to, co jest skonfigurowane w vUSBPB,
-    czyli mapowanie VMID -> USB devpath, wraz ze statusem VM.
-    """
     try:
         config = loadConfig(allow_missing=True)
     except ConfigError as e:
@@ -79,13 +70,11 @@ def listVMPowerButton() -> int:
         return 1
 
     mappings: List[Dict[str, Any]] = getVmMappings(config)
-
-    print("VMID   USB devpath   Status")
-    print("-----------------------------------")
-
     if not mappings:
+        print("Brak skonfigurowanych VM Power Button.")
         return 0
 
+    nodes: List[TreeNode] = []
     for m in mappings:
         vm_id = m.get("vmId")
         usb_port_id = m.get("usbPortId", "")
@@ -105,8 +94,17 @@ def listVMPowerButton() -> int:
         else:
             status_str = "unknown"
 
-        print(f"{vm_id_int:<6} {usb_port_id:<12} {status_str}")
+        vm_node = TreeNode(
+            label=f"VM ID: {vm_id_int}",
+            children=[
+                TreeNode(label=f"Status: {status_str}"),
+                TreeNode(label=f"USB number: {usb_port_id}"),
+            ],
+        )
+        nodes.append(vm_node)
 
+    tree = renderTree("(node)", nodes)
+    print(tree)
     return 0
 
 

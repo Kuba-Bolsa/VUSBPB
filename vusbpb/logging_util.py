@@ -1,20 +1,18 @@
-# vusbpb/logging_util.py
 import sys
 
 
-def _log(level: str, msg: str) -> None:
-    """Log single line to stderr; systemd/journald zbierze to automatycznie."""
+def logInfo(msg: str) -> None:
+    saveLog("INFO", msg)
+
+
+def logWarning(msg: str) -> None:
+    saveLog("WARNING", msg)
+
+
+def logError(msg: str) -> None:
+    saveLog("ERROR", msg)
+
+
+def saveLog(level: str, msg: str) -> None:
     sys.stderr.write(f"[{level}] vusbpb: {msg}\n")
     sys.stderr.flush()
-
-
-def log_info(msg: str) -> None:
-    _log("INFO", msg)
-
-
-def log_warning(msg: str) -> None:
-    _log("WARNING", msg)
-
-
-def log_error(msg: str) -> None:
-    _log("ERROR", msg)

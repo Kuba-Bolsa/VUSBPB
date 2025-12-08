@@ -133,7 +133,7 @@ def showVMFromSystem() -> int:
             )
         )
 
-    print(renderTree("\033[38;5;28mVM list\033[0m", nodes))
+    print(renderTree("\033[38;5;28mVirtual Machine(s)\033[0m", nodes))
     return 0
 
 

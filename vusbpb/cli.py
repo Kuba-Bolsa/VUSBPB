@@ -37,7 +37,7 @@ def buildParser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--add",
         type = int,
-        help = "Add USB power button for VM, requires --usb",
+        help = "Add USB power button for VM, requires --usbport",
     )
     parser.add_argument(
         "--delete",
@@ -45,7 +45,7 @@ def buildParser() -> argparse.ArgumentParser:
         help = "Delete VM mapping by VM ID",
     )
     parser.add_argument(
-        "--usb",
+        "--usbport",
         type = str,
         help = "USB port devpath (e.g. 1-1.2, 3-0:1.0) used with --add "
             "(use '--list usb' as a helper)",
@@ -101,12 +101,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # ADD / DELETE VM MAPPING
     if args.add is not None:
-        if not args.usb:
-            print("--add requires --usb PORT_ID (use '--show usb' like a helper)")
+        if not args.usbport:
+            print("--add requires --usbport PORT_ID (use '--list usb' like a helper)")
             return 1
         requireProxmox()
         requireRoot()
-        return addVMPowerButton(args.add, args.usb)
+        return addVMPowerButton(args.add, args.usbport)
 
     if args.delete is not None:
         requireProxmox()

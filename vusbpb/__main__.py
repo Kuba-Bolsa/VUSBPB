@@ -1,4 +1,3 @@
-# vusbpb/__main__.py
 from .cli import main
 
 

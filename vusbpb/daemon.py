@@ -3,7 +3,8 @@ from typing import Dict, List
 
 from .logging_util import logInfo, logError, logWarning
 from .config import loadConfig, ConfigError
-from .proxmox import get_vm_status, start_vm, VmStatus
+#from .proxmox import getVMStatus, startVM, VmStatus
+from .vm import getVMStatus, startVM, VmStatus
 
 
 def runDaemon() -> int:
@@ -51,10 +52,10 @@ def runDaemon() -> int:
             logInfo(f"USB 'add' event on {usbPortId}, mapped VMs: {vmIds}")
 
             for vmId in vmIds:
-                vmStatus = get_vm_status(vmId)
+                vmStatus = getVMStatus(vmId)
                 if vmStatus == VmStatus.STOPPED:
                     logInfo(f"VM {vmId} is stopped, attempting to start...")
-                    ok = start_vm(vmId)
+                    ok = startVM(vmId)
                     if ok:
                         logInfo(f"Successfully started VM {vmId}")
                     else:

@@ -7,7 +7,7 @@ CONFIG_PATH = "/etc/vusbpb.conf"
 
 
 class ConfigError(Exception):
-    """Błąd ładowania / zapisu konfiguracji."""
+    pass
 
 
 def defaultConfig() -> Dict[str, Any]:
@@ -21,7 +21,7 @@ def loadConfig(allow_missing: bool = True) -> Dict[str, Any]:
     if not os.path.exists(CONFIG_PATH):
         if allow_missing:
             return defaultConfig()
-        raise ConfigError(f"Config file {CONFIG_PATH} does not exist")
+        raise ConfigError(f"Config file {CONFIG_PATH} doesn't exist")
 
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as file:
@@ -50,7 +50,7 @@ def saveConfig(config: Dict[str, Any]) -> None:
             os.unlink(tmpPath)
         except OSError:
             pass
-        raise ConfigError(f"Cannot write config to {CONFIG_PATH}: {error}") from error
+        raise ConfigError(f"Can't write config to {CONFIG_PATH}: {error}") from error
 
 
 def getVmMappings(config: Dict[str, Any]) -> List[Dict[str, Any]]:

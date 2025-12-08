@@ -1,4 +1,3 @@
-# vusbpb/usb.py
 import os
 from dataclasses import dataclass
 from typing import List

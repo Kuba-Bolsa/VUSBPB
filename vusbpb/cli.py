@@ -4,7 +4,7 @@ import sys
 
 from .usb import showUSB
 from .vm import showVMFromSystem, addVMPowerButton, deleteVMPowerButton, listVMPowerButton
-from .systemd_install import install as doInstall, uninstall as doUninstall
+from .systemd import (install as doInstall, uninstall as doUninstall, daemonRestartIfInstalled)
 from .daemon import runDaemon
 
 
@@ -37,7 +37,7 @@ def buildParser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--add",
         type = int,
-        help = "Add USB power button for VM, requires --usbport",
+        help = "Add USB power button for VM, requires --usbport and/or --usbdevice",
     )
     parser.add_argument(
         "--delete",
@@ -49,6 +49,11 @@ def buildParser() -> argparse.ArgumentParser:
         type = str,
         help = "USB port devpath (e.g. 1-1.2, 3-0:1.0) used with --add "
             "(use '--list usb' as a helper)",
+    )
+    parser.add_argument(
+        "--usbdevice",
+        type = str,
+        help = "USB device ID (idVendor:idProduct, e.g. 1234:abcd) used with --add",
     )
     parser.add_argument(
         "--version",
@@ -101,23 +106,31 @@ def main(argv: list[str] | None = None) -> int:
 
     # ADD / DELETE VM MAPPING
     if args.add is not None:
-        if not args.usbport:
-            print("--add requires --usbport PORT_ID (use '--list usb' like a helper)")
+        if not args.usbport and not args.usbdevice:
+            print("--add requires at least one of: "
+                "--usbport PORT_ID or --usbdevice VENDOR:PRODUCT")
             return 1
         requireProxmox()
         requireRoot()
-        return addVMPowerButton(args.add, args.usbport)
+        result = addVMPowerButton(args.add, args.usbport, args.usbdevice)
+        if result == 0:
+            daemonRestartIfInstalled()
+        return result
 
     if args.delete is not None:
         requireProxmox()
         requireRoot()
-        return deleteVMPowerButton(args.delete)
+        result = deleteVMPowerButton(args.delete)
+        if result == 0:
+            daemonRestartIfInstalled()
+        return result
 
     # Default: HELP
     parser.print_help()
     return 0
 
 
+# Helpers
 def requireRoot() -> None:
     if os.geteuid() != 0:
         print("This command must be executed as root!")

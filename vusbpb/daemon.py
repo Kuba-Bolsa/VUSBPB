@@ -3,8 +3,8 @@ from typing import Dict, List
 
 from .logging_util import logInfo, logError, logWarning
 from .config import loadConfig, ConfigError
-#from .proxmox import getVMStatus, startVM, VmStatus
 from .vm import getVMStatus, startVM, VmStatus
+from .usb import scanUSBPorts
 
 
 def runDaemon() -> int:
@@ -21,14 +21,25 @@ def runDaemon() -> int:
         logError(f"Can't load config: {error}")
         return 1
 
-    usbPortToVMs = helperBuildPortToVMMap(config)
-    totalVMs = sum(len(v) for v in usbPortToVMs.values())
-
-    if not usbPortToVMs:
+    mappings = config.get("VMS", [])
+    if not mappings:
         logWarning("No VM mappings found in config. Daemon will run but do nothing")
     else:
-        portList = ", ".join(usbPortToVMs.keys())
-        logInfo(f"Loaded {totalVMs} VM mappings on ports: {portList}")
+        countPortOnly = countDevOnly = countBoth = 0
+        for entry in mappings:
+            hasPort = bool(entry.get("usbPortId"))
+            hasDev  = bool(entry.get("usbDeviceId"))
+            if hasPort and hasDev:
+                countBoth += 1
+            elif hasPort:
+                countPortOnly += 1
+            elif hasDev:
+                countDevOnly += 1
+        total = len(mappings)
+        logInfo(
+            f"Loaded {total} VM mapping(s) "
+            f"(port only: {countPortOnly}, device only: {countDevOnly}, port+device: {countBoth})"
+        )
 
     portMonitor = pyudev.Monitor.from_netlink(pyudev.Context())
     portMonitor.filter_by(subsystem = "usb")
@@ -45,11 +56,20 @@ def runDaemon() -> int:
                 continue
 
             usbPortId = usbSysName
-            if usbPortId not in usbPortToVMs:
+            usbDeviceId = helperGetUsbDeviceId(usbPortId)
+
+            vmIds = helperFindMatchingVMs(config, usbPortId, usbDeviceId)
+            if not vmIds:
+                logInfo(
+                    f"USB 'add' event on {usbPortId}, "
+                    f"device={usbDeviceId or 'unknown'}, no matching VMs"
+                )
                 continue
 
-            vmIds = usbPortToVMs[usbPortId]
-            logInfo(f"USB 'add' event on {usbPortId}, mapped VMs: {vmIds}")
+            logInfo(
+                f"USB 'add' event on {usbPortId}, "
+                f"device={usbDeviceId or 'unknown'}, mapped VMs: {vmIds}"
+            )
 
             for vmId in vmIds:
                 vmStatus = getVMStatus(vmId)
@@ -75,18 +95,38 @@ def runDaemon() -> int:
 
 
 # Helpers
-def helperBuildPortToVMMap(config: dict) -> Dict[str, List[int]]:
-    mapping: Dict[str, List[int]] = {}
+def helperGetUsbDeviceId(usbPortId: str) -> str | None:
+    for port in scanUSBPorts():
+        if port.usbPortId == usbPortId and port.usbIsConnected:
+            return port.usbDeviceId
+    return None
+
+
+def helperFindMatchingVMs(config: dict, usbPortId: str, usbDeviceId: str | None) -> List[int]:
+    result: List[int] = []
     vms = config.get("VMS", [])
     for entry in vms:
-        vmId = entry.get("vmId")
-        usbPortId = entry.get("usbPortId")
-        if vmId is None or not usbPortId:
+        vmId_raw = entry.get("vmId")
+        if vmId_raw is None:
             continue
         try:
-            vmId_int = int(vmId)
+            vmId = int(vmId_raw)
         except (TypeError, ValueError):
             continue
 
-        mapping.setdefault(usbPortId, []).append(vmId_int)
-    return mapping
+        portCond = entry.get("usbPortId")
+        devCond = entry.get("usbDeviceId")
+
+        if not portCond and not devCond:
+            continue
+
+        if portCond and portCond != usbPortId:
+            continue
+
+        if devCond:
+            if not usbDeviceId or devCond != usbDeviceId:
+                continue
+
+        result.append(vmId)
+
+    return result

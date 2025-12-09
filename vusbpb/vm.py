@@ -1,9 +1,7 @@
 import subprocess
 from enum import Enum, auto
 from typing import Dict, Any, List
-
 from .config import (loadConfig, saveConfig, getVmMappings, setVmMappings, ConfigError)
-#from .proxmox import getVMStatus, VmStatus, getAllVMs
 from .drawtree import TreeNode, renderTree
 
 
@@ -100,12 +98,12 @@ def showVMFromSystem() -> int:
         print(f"ERROR: Cannot load config: {error}")
         return 1
 
-    vmIdToUSB: Dict[int, str] = {}
+    vmIdToMapping: Dict[int, Dict[str, Any]] = {}
     for mapping in getVmMappings(config):
         vmId = helperSafeInt(mapping.get("vmId"))
         if vmId is None:
             continue
-        vmIdToUSB[vmId] = mapping.get("usbPortId", "")
+        vmIdToMapping[vmId] = mapping
 
     vms = getAllVMs()
     if not vms:
@@ -120,7 +118,20 @@ def showVMFromSystem() -> int:
 
         vmName = vm.get("name", "")
         vmStatus = vm.get("status", "unknown")
-        vmUSBPort = vmIdToUSB.get(vmId, "<none>")
+
+        mapping = vmIdToMapping.get(vmId)
+        if not mapping:
+            usbInfo = "<none>"
+        else:
+            mPort = mapping.get("usbPortId")
+            mDev  = mapping.get("usbDeviceId")
+
+            if not mPort and not mDev:
+                usbInfo = "<none>"
+            else:
+                portDisplay = mPort or "<any port>"
+                devDisplay  = mDev or "<any device>"
+                usbInfo = f"{portDisplay} (device {devDisplay})"
 
         nodes.append(
             TreeNode(
@@ -128,7 +139,7 @@ def showVMFromSystem() -> int:
                 children = [
                     TreeNode(label = f"\033[38;5;82mName: \033[38;5;15m{vmName}\033[0m"),
                     TreeNode(label = f"\033[38;5;82mStatus: \033[38;5;15m{vmStatus}\033[0m"),
-                    TreeNode(label = f"\033[38;5;82mUSB devpath: \033[38;5;15m{vmUSBPort}\033[0m"),
+                    TreeNode(label = f"\033[38;5;82mUSB trigger: \033[38;5;15m{usbInfo}\033[0m"),
                 ],
             )
         )
@@ -161,7 +172,16 @@ def listVMPowerButton() -> int:
         if vmId is None:
             continue
 
-        vmUSBPort = m.get("usbPortId", "")
+        vmUSBPort = m.get("usbPortId")
+        vmUSBDevice = m.get("usbDeviceId")
+
+        if not (vmUSBPort or vmUSBDevice):
+            portDisplay = "<none>"
+            devDisplay = "<none>"
+        else:
+            portDisplay = vmUSBPort or "<any>"
+            devDisplay = vmUSBDevice or "<any>"
+
         vmStatus = statusMap.get(getVMStatus(vmId), "unknown")
 
         nodes.append(
@@ -169,7 +189,8 @@ def listVMPowerButton() -> int:
                 label = f"\033[38;5;28mVM ID: \033[38;5;15m{vmId}\033[0m",
                 children = [
                     TreeNode(label = f"\033[38;5;28mStatus: \033[38;5;15m{vmStatus}\033[0m"),
-                    TreeNode(label = f"\033[38;5;28mUSB number: \033[38;5;15m{vmUSBPort}\033[0m"),
+                    TreeNode(label = f"\033[38;5;28mUSB port: \033[38;5;15m{portDisplay}\033[0m"),
+                    TreeNode(label = f"\033[38;5;28mUSB device: \033[38;5;15m{devDisplay}\033[0m"),
                 ],
             )
         )
@@ -178,32 +199,46 @@ def listVMPowerButton() -> int:
     return 0
 
 
-def addVMPowerButton(vmId: int, vmUSBPort: str) -> int:
+def addVMPowerButton(vmId: int, vmUSBPort: str | None, vmUSBDevice: str | None) -> int:
     try:
         config = loadConfig(allow_missing = True)
     except ConfigError as error:
         print(f"ERROR: Cannot load config: {error}")
         return 1
 
+    if not vmUSBPort and not vmUSBDevice:
+        print("ERROR: You must provide --usbport and/or --usbdevice")
+        return 1
+
     mappings: List[Dict[str, Any]] = getVmMappings(config)
     for m in mappings:
         if int(m.get("vmId", -1)) == vmId:
-            print(f"ERROR: VMID {vmId} is already configured. Use --delete {vmId} first")
+            print(f"ERROR: VM ID {vmId} is already configured. Use --delete {vmId} first")
             return 1
 
-    mappings.append({
-        "vmId": vmId,
-        "usbPortId": vmUSBPort
-    })
+    newMapping: Dict[str, Any] = {"vmId": vmId}
+    if vmUSBPort:
+        newMapping["usbPortId"] = vmUSBPort
+    if vmUSBDevice:
+        newMapping["usbDeviceId"] = vmUSBDevice
 
+    mappings.append(newMapping)
     config = setVmMappings(config, mappings)
+
     try:
         saveConfig(config)
     except ConfigError as error:
         print(f"ERROR: Cannot save config: {error}")
         return 1
 
-    print(f"Added VM ID: {vmId} with USB devpath {vmUSBPort}")
+    vmUSBConfigJoin: List[str] = []
+    if vmUSBPort:
+        vmUSBConfigJoin.append(f"USB devpath {vmUSBPort}")
+    if vmUSBDevice:
+        vmUSBConfigJoin.append(f"USB device {vmUSBDevice}")
+    vmUSBConfigJoin = " and ".join(vmUSBConfigJoin)
+
+    print(f"Added VM ID: {vmId} with {vmUSBConfigJoin}")
     return 0
 
 

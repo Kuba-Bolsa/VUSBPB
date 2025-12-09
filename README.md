@@ -1,14 +1,30 @@
 
 # vUSBPB - Virtual USB Power Button for Proxmox VMs
 
-vUSBPB to lekka, lecz niezwykle funkcjonalna aplikacja zaprojektowana z myślą o automatyzacji uruchamiania maszyn wirtualnych w środowiskach Proxmox, QEMU oraz KVM - i to bez konieczności korzystania z terminala lub interfejsu graficznego.
-Jej główną ideą jest stworzenie swoistych „wirtualnych włączników komputerów”, czyli mechanizmu, który potrafi wystartować wybraną maszynę wirtualną w momencie, gdy użytkownik wpina dowolne urządzenie do określonego portu USB.
+vUSBPB is a lightweight yet highly capable application designed to automate the startup of virtual machines in Proxmox, QEMU, and KVM environments—without the need to use a terminal or graphical interface.
 
-Dzięki temu obsługa VM może stać się tak intuicyjna, jak włączenie fizycznego komputera: wkładasz pendrive, adapter lub inne urządzenie USB - a przypisana mu maszyna wirtualna uruchamia się automatycznie.
+Its core concept is to create “virtual power buttons” for virtual machines: a mechanism that automatically starts a selected VM when the user plugs any device into a specified USB port.
 
-Aplikacja działa jako demon systemowy, stale monitorujący zdarzenia USB w tle. Jej zachowanie jest w pełni konfigurowalne: administrator może zdefiniować dowolną liczbę portów USB oraz przypisać je do konkretnych VM. Pozwala to tworzyć elastyczne scenariusze działania, takie jak:
-- start różnych maszyn wirtualnych w zależności od użytego portu USB,
-- obsługa wielu urządzeń wyzwalających różne funkcje,
-- wygodne sterowanie środowiskiem Proxmox/QEMU/KVM bez interakcji z poziomu konsoli.
+This makes managing VMs as intuitive as powering on a physical computer: you insert a USB stick, adapter, or any other USB device—and the VM assigned to that port launches automatically.
 
-Dzięki swojej prostocie i elastyczności vUSBPB sprawdza się w zastosowaniach domowych, biurowych i hobbystycznych - wszędzie tam, gdzie szybki i bezobsługowy start maszyn wirtualnych znacząco ułatwia pracę.
+The application runs as a system daemon, continuously monitoring USB events in the background. Its behavior is fully configurable: the administrator can define any number of USB ports and assign them to specific VMs. This allows for flexible usage scenarios such as:
+- starting different virtual machines depending on which USB port is used,
+- handling multiple devices that trigger different actions,
+- conveniently controlling the Proxmox/QEMU/KVM environment without interacting with the console.
+
+Thanks to its simplicity and flexibility, vUSBPB is well suited for both home and office environments—anywhere a fast and hands-free virtual machine startup can significantly improve workflow.
+
+
+## Installation
+
+```bash
+git clone https://github.com/Kuba-Bolsa/VUSBPB.git
+cd VUSBPB/
+python3 -m venv .venv
+source .venv/bin/activate
+pip install nuitka pyudev
+python -m nuitka --standalone --onefile --follow-imports --include-module=pyudev --output-filename=vusbpb.bin main.py
+chmod +x ./vusbpb.bin
+mv ./vusbpb.bin /usr/bin/vusbpb
+```
+

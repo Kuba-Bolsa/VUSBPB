@@ -22,9 +22,12 @@ Description=Virtual USB Power Button daemon (vUSBPB)
 After=network.target
 
 [Service]
+Type=simple
 ExecStart=/usr/bin/vusbpb --daemon
-Restart=always
-RestartSec=5
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
@@ -37,10 +40,10 @@ WantedBy=multi-user.target
         print(f"ERROR: cannot write systemd service file: {error}")
         return 1
 
-    if not helperRun(["systemctl", "daemon-reload"]):
+    if not daemonRun(["systemctl", "daemon-reload"]):
         print("WARNING: systemctl daemon-reload failed")
 
-    if not helperRun(["systemctl", "enable", "--now", "vusbpb.service"]):
+    if not daemonRun(["systemctl", "enable", "--now", "vusbpb.service"]):
         print("ERROR: cannot enable/start service")
         return 1
 
@@ -49,8 +52,8 @@ WantedBy=multi-user.target
 
 
 def uninstall() -> int:
-    helperRun(["systemctl", "stop", "vusbpb.service"], ignore_errors = True)
-    helperRun(["systemctl", "disable", "vusbpb.service"], ignore_errors = True)
+    daemonRun(["systemctl", "stop", "vusbpb.service"], ignoreErrors = True)
+    daemonRun(["systemctl", "disable", "vusbpb.service"], ignoreErrors = True)
 
     if os.path.exists("/etc/systemd/system/vusbpb.service"):
         try:
@@ -59,7 +62,7 @@ def uninstall() -> int:
             print(f"ERROR: cannot remove service file: {error}")
             return 1
 
-    helperRun(["systemctl", "daemon-reload"], ignore_errors = True)
+    daemonRun(["systemctl", "daemon-reload"], ignoreErrors = True)
 
     if os.path.exists(CONFIG_PATH):
         try:
@@ -72,12 +75,29 @@ def uninstall() -> int:
     return 0
 
 
-# Helpers
-def helperRun(cmd: list[str], ignore_errors: bool = False) -> bool:
+def daemonRun(cmd: list[str], ignoreErrors: bool = False) -> bool:
     try:
         result = subprocess.run(cmd, check = False)
-        if result.returncode != 0 and not ignore_errors:
+        if result.returncode != 0 and not ignoreErrors:
             return False
         return True
     except Exception:
-        return False if not ignore_errors else True
+        return False if not ignoreErrors else True
+
+
+def daemonRestartIfInstalled() -> None:
+    if not os.path.exists("/etc/systemd/system/vusbpb.service"):
+        return
+
+    try:
+        isActive = subprocess.run(
+            ["systemctl", "is-active", "--quiet", "vusbpb.service"],
+            check = False,
+        )
+    except Exception:
+        return
+
+    if isActive.returncode != 0:
+        return
+
+    daemonRun(["systemctl", "restart", "vusbpb.service"], ignoreErrors = True)

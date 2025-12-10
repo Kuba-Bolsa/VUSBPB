@@ -44,6 +44,8 @@ From that moment on, the program runs in the background. To assign a virtual pow
 vusbpb --list vm
 ```
 
+<p align="center"><img height="350" alt="Screenshot 2025-12-10 at 13 13 38" src="https://github.com/user-attachments/assets/b9d7cf52-a87c-4962-a574-9cfd79a0e3c4" /></p>
+
 ---
 
 The next step is to determine the USB port identifiers. The easiest way is to remove the device from the selected USB port and run:
@@ -52,6 +54,8 @@ vusbpb --list usb
 ```
 Then insert the device back into the port and run the command again. This time, the newly used port will be marked accordingly, making it easier to identify.
 
+<p align="center"><img height="350" alt="Screenshot 2025-12-10 at 13 15 06" src="https://github.com/user-attachments/assets/0fd1b074-3cb5-4f05-b05c-8ddc0e7955b5" /></p>
+
 ---
 
 Once you know the port number, you can configure the virtual power button:
@@ -59,12 +63,16 @@ Once you know the port number, you can configure the virtual power button:
 vusbpb --add {VM_ID} --usbport {USB_ID}
 ```
 
+<p align="center"><img height="350" alt="Screenshot 2025-12-10 at 13 17 34" src="https://github.com/user-attachments/assets/bc43bd63-3680-4f85-8b57-ef85785bfada" /></p>
+
 ---
 
 If you want the virtual machine to be started only by one specific USB device, use the --usbdevice argument:
 ```bash
 vusbpb --add {VM_ID} --usbdevice {USB_DEVICE_ID}
 ```
+
+<p align="center"><img height="350" alt="Screenshot 2025-12-10 at 13 16 53" src="https://github.com/user-attachments/assets/09f59b46-eac3-4567-87c3-1b53ee02a78b" /></p>
 
 ---
 
